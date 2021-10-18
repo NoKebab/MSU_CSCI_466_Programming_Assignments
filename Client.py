@@ -21,14 +21,14 @@ if __name__ == '__main__':
     rdt = RDT.RDT('client', args.server, args.port)
     for msg_S in msg_L:
         print('Converting: ' + msg_S)
-        rdt.rdt_1_0_send(msg_S)
+        rdt.rdt_2_1_send(msg_S)
         
         # receive message
         msg_S = None
         while msg_S is None:
             # try to receiver message before timeout
             try:
-                msg_S = rdt.rdt_1_0_receive()
+                msg_S = rdt.rdt_2_1_receive()
                 if msg_S is None:
                     continue
             except RDT.RDTException as e:
