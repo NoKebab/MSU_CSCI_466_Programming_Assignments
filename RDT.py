@@ -123,18 +123,20 @@ class RDT:
     # Implement These:
 
     # think about async
-
-    # receive_thread = threading.Thread(name='Receiver', target=self.receive_helper())
+    # receive_thread = threading.Thread(name='Receiver', target=self.receive_helper, args=(msg_S,))
     # receive_thread.start()
-    # receive_thread.join()
-    def receive_helper(self):
+
+    # helper gets input from the receiver to the sender
+    # returns the byte stream sent from receiver
+    def __receive_helper(self):
+        print('Made it to receive helper')
         start = datetime.now()
         while True:
             if datetime.now() - start > self.timeout:
                 raise RDTException("timeout")
             # !!! make sure to use net_rcv link to udt_send and udt_receive the in RDT receive function
             byte_S = self.net_snd.udt_receive()
-            self.receiver_buffer += byte_S
+            self.receiver_buffer = byte_S
             # check if we have received enough bytes
             if len(self.receiver_buffer) < Packet.length_S_length:
                 # return ret_S  # not enough bytes to read packet length
@@ -144,40 +146,53 @@ class RDT:
             if len(self.receiver_buffer) < length:
                 # return ret_S  # not enough bytes to read the whole packet
                 continue
-            # create packet from buffer content
-            p = Packet.from_byte_S(self.receiver_buffer[0:length])
             # remove the packet bytes from the buffer
+            print('Receive helper byte stream: ', self.receiver_buffer)
+            temp = self.receiver_buffer
             self.receiver_buffer = self.receiver_buffer[length:]
-            return p
-            # return packet message to the upper layer
-            # return p.msg_S
+            return temp[0:length]
 
-    # receive_thread = threading.Thread(name='Receiver', target=self.receive_helper, args=(msg_S,))
-    # receive_thread.start()
     # rdt 1.0 send + corruption and duplicate
     def rdt_2_1_send(self, msg_S):
         # State 1: Wait for call 0 from above
         snd_packet = Packet(self.seq_num, msg_S)
-        self.net_snd.udt_send(snd_packet.get_byte_S())
-        # State 2: STOP AND WAIT for an ACK or NAK after transmitting packet
-        rcv_packet = self.receive_helper()
-        print('Message: ', rcv_packet.msg_S)
-        if Packet.corrupt(rcv_packet.get_byte_S()) or Packet.from_byte_S(rcv_packet.get_byte_S()).msg_S == 'NAK':
-            return self.rdt_2_1_send(msg_S)
-        # Transition to mirror image of first two states
+        # swap sequence number
+        # self.seq_num = int(not self.seq_num)
+        self.seq_num = 0
+        self.receiver_buffer = ''
+        while True:
+            self.net_snd.udt_send(snd_packet.get_byte_S())
+            # State 2: STOP AND WAIT for an ACK or NAK after transmitting packet
+            rcv = self.__receive_helper()
+            if Packet.corrupt(rcv):
+                print('ACK or NAK Packet Corrupt')
+                # increment packet seq num for retransmit
+                snd_packet = Packet(self.seq_num + 1, msg_S)
+                continue
+                # return self.rdt_2_1_send(msg_S)
+                # continue
+            rcv_packet = Packet.from_byte_S(rcv)
+            if rcv_packet.msg_S == 'NAK':
+                print('NAK received in sender')
+                continue
+            # if rcv_packet.seq_num < self.seq_num:
+            #     ack = Packet(rcv_packet.seq_num, 'ACK')
+            #     self.net_snd.udt_send(ack.get_byte_S())
+            # debug statement
+            print('Message: ', rcv_packet.msg_S)
+            print('Sequence Number: ', self.seq_num)
 
-        # self.seq_num = 1 if not self.seq_num else 0
-        print('Sequence Number ', self.seq_num)
-        self.seq_num += 1
-        # if len(self.byte_buffer) >= rcv_packet.length_S_length:
-        #     # Extract the length of the packet
-        #     length = int(self.byte_buffer[:rcv_packet.length_S_length])
-        #     if Packet.corrupt(self.byte_buffer[:length]):
-        #         self.net_snd.udt_send(snd_packet.get_byte_S())
+            if rcv_packet.msg_S == 'ACK':
+                self.seq_num += 1
+                break
+                # return self.rdt_2_1_send(msg_S)
+                # continue
+        # Transition to mirror image of first two states
 
     def rdt_2_1_receive(self):
         start = datetime.now()
-        while True:
+        expected_pkt_seq = self.seq_num
+        while expected_pkt_seq == self.seq_num:
             if datetime.now() - start > self.timeout:
                 raise RDTException("timeout")
             # !!! make sure to use net_rcv link to udt_send and udt_receive the in RDT receive function
@@ -192,25 +207,38 @@ class RDT:
             if len(self.byte_buffer) < length:
                 # return ret_S  # not enough bytes to read the whole packet
                 continue
+            # State 1 loop transitions
+            # check that buffer isn't corrupt
+            # if so the packet is discarded and not delivered to the application
+            print('Packet: %s' % self.byte_buffer)
+            if Packet.corrupt(self.byte_buffer):
+                print('Corrupt packet sent to receiver\n')
+                self.byte_buffer = self.byte_buffer[length:]
+                nak = Packet(self.seq_num, 'NAK')
+                self.net_rcv.udt_send(nak.get_byte_S())
+                continue
+                # self.receiver_buffer += nak.get_byte_S()
+            # NEED TO CHECK 4 DUPLICATES
+            # ack = Packet(self.seq_num, 'ACK')
+            # self.net_rcv.udt_send(ack.get_byte_S())
+
             # IMPORTANT: pulls the bytes from buffer
             # create packet from buffer content
             p = Packet.from_byte_S(self.byte_buffer[0:length])
             # remove the packet bytes from the buffer
             self.byte_buffer = self.byte_buffer[length:]
-            # Added:
-            # State 1 loop transitions
-            # send ACK
-            if Packet.corrupt(p.get_byte_S()):
-                nak = Packet(self.seq_num, 'NAK')
-                self.receiver_buffer += nak.get_byte_S()
-                self.net_rcv.udt_send(nak.get_byte_S())
-                return
-            if p.seq_num == self.seq_num:
-                ack = Packet(self.seq_num, 'ACK')
-                self.receiver_buffer += ack.get_byte_S()
-                self.net_rcv.udt_send(ack.get_byte_S())
-            # if self.seq_num == p.seq_num:
+            # transition to Wait for 1 from below state
+            # duplicate ACKs
+            # if self.seq_num <= p.seq_num:
+            ack = Packet(self.seq_num, 'ACK')
+            self.net_rcv.udt_send(ack.get_byte_S())
+            # else:
             #     continue
+                # self.receiver_buffer += ack.get_byte_S()
+            # else:
+            #     nak = Packet(self.seq_num, 'NAK')
+            #     # self.receiver_buffer += nak.get_byte_S()
+            #     self.net_rcv.udt_send(nak.get_byte_S())
 
             # return packet message to the upper layer
             return p.msg_S
