@@ -129,11 +129,12 @@ class RDT:
     # helper gets input from the receiver to the sender
     # returns the byte stream sent from receiver
     def __receive_helper(self):
-        print('Made it to receive helper')
+        # print('Made it to receive helper')
         start = datetime.now()
         while True:
             if datetime.now() - start > self.timeout:
-                raise RDTException("timeout")
+                return
+                # raise RDTException("timeout")
             # !!! make sure to use net_rcv link to udt_send and udt_receive the in RDT receive function
             byte_S = self.net_snd.udt_receive()
             self.receiver_buffer = byte_S
@@ -147,7 +148,7 @@ class RDT:
                 # return ret_S  # not enough bytes to read the whole packet
                 continue
             # remove the packet bytes from the buffer
-            print('Receive helper byte stream: ', self.receiver_buffer)
+            # print('Receive helper byte stream: ', self.receiver_buffer)
             temp = self.receiver_buffer
             self.receiver_buffer = self.receiver_buffer[length:]
             return temp[0:length]
@@ -161,11 +162,14 @@ class RDT:
         self.seq_num = 0
         self.receiver_buffer = ''
         while True:
+            self.byte_buffer = ''
             self.net_snd.udt_send(snd_packet.get_byte_S())
             # State 2: STOP AND WAIT for an ACK or NAK after transmitting packet
             rcv = self.__receive_helper()
+            if rcv is None:
+                return
             if Packet.corrupt(rcv):
-                print('ACK or NAK Packet Corrupt')
+                # print('ACK or NAK Packet Corrupt')
                 # increment packet seq num for retransmit
                 snd_packet = Packet(self.seq_num + 1, msg_S)
                 continue
@@ -173,14 +177,14 @@ class RDT:
                 # continue
             rcv_packet = Packet.from_byte_S(rcv)
             if rcv_packet.msg_S == 'NAK':
-                print('NAK received in sender')
+                # print('NAK received in sender')
                 continue
             # if rcv_packet.seq_num < self.seq_num:
             #     ack = Packet(rcv_packet.seq_num, 'ACK')
             #     self.net_snd.udt_send(ack.get_byte_S())
             # debug statement
-            print('Message: ', rcv_packet.msg_S)
-            print('Sequence Number: ', self.seq_num)
+            # print('Message: ', rcv_packet.msg_S)
+            # print('Sequence Number: ', self.seq_num)
 
             if rcv_packet.msg_S == 'ACK':
                 self.seq_num += 1
@@ -210,9 +214,9 @@ class RDT:
             # State 1 loop transitions
             # check that buffer isn't corrupt
             # if so the packet is discarded and not delivered to the application
-            print('Packet: %s' % self.byte_buffer)
+            # print('Packet: %s' % self.byte_buffer)
             if Packet.corrupt(self.byte_buffer):
-                print('Corrupt packet sent to receiver\n')
+                # print('Corrupt packet sent to receiver\n')
                 self.byte_buffer = self.byte_buffer[length:]
                 nak = Packet(self.seq_num, 'NAK')
                 self.net_rcv.udt_send(nak.get_byte_S())
