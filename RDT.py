@@ -71,8 +71,6 @@ class RDT:
         # use the passed in port and port+1 to set up unidirectional links between
         # RDT send and receive functions
         # cross the ports on the client and server to match net_snd to net_rcv
-        self.stop = False
-
         if role_S == 'server':
             self.net_snd = Network.NetworkLayer(role_S, server_S, port)
             self.net_rcv = Network.NetworkLayer(role_S, server_S, port + 1)
@@ -80,11 +78,7 @@ class RDT:
             self.net_rcv = Network.NetworkLayer(role_S, server_S, port)
             self.net_snd = Network.NetworkLayer(role_S, server_S, port + 1)
 
-        # receive_thread = threading.Thread(name='Receiver', target=self.receive_helper())
-        # receive_thread.start()
-
     def disconnect(self):
-        self.stop = True
         self.net_snd.disconnect()
         del self.net_snd
         self.net_rcv.disconnect()
@@ -121,10 +115,6 @@ class RDT:
             return p.msg_S
 
     # Implement These:
-
-    # think about async
-    # receive_thread = threading.Thread(name='Receiver', target=self.receive_helper, args=(msg_S,))
-    # receive_thread.start()
 
     # helper gets input from the receiver to the sender
     # returns the byte stream sent from receiver
@@ -187,7 +177,7 @@ class RDT:
             # print('Sequence Number: ', self.seq_num)
 
             if rcv_packet.msg_S == 'ACK':
-                self.seq_num += 1
+                # self.seq_num += 1
                 break
                 # return self.rdt_2_1_send(msg_S)
                 # continue
@@ -233,12 +223,12 @@ class RDT:
             self.byte_buffer = self.byte_buffer[length:]
             # transition to Wait for 1 from below state
             # duplicate ACKs
-            # if self.seq_num <= p.seq_num:
-            ack = Packet(self.seq_num, 'ACK')
-            self.net_rcv.udt_send(ack.get_byte_S())
+            if self.seq_num <= p.seq_num:
+                ack = Packet(self.seq_num, 'ACK')
+                self.net_rcv.udt_send(ack.get_byte_S())
             # else:
             #     continue
-                # self.receiver_buffer += ack.get_byte_S()
+            # self.receiver_buffer += ack.get_byte_S()
             # else:
             #     nak = Packet(self.seq_num, 'NAK')
             #     # self.receiver_buffer += nak.get_byte_S()
