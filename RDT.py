@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timedelta
 import Network
 import argparse
@@ -147,8 +148,6 @@ class RDT:
     def rdt_2_1_send(self, msg_S):
         # State 1: Wait for call 0 from above
         snd_packet = Packet(self.seq_num, msg_S)
-        # swap sequence number
-        # self.seq_num = int(not self.seq_num)
         self.seq_num = 0
         while True:
             self.byte_buffer = ''
@@ -161,6 +160,7 @@ class RDT:
                 print('ACK or NAK Packet Corrupt')
                 # increment packet seq num for retransmit
                 snd_packet = Packet(self.seq_num + 1, msg_S)
+                self.net_snd.udt_send(snd_packet.get_byte_s())
                 return
             snd_packet = Packet(self.seq_num, msg_S)
             rcv_packet = Packet.from_byte_S(rcv)
@@ -174,7 +174,6 @@ class RDT:
 
     def rdt_2_1_receive(self):
         start = datetime.now()
-        expected_pkt_seq = self.seq_num
         while True:
             if datetime.now() - start > self.timeout:
                 raise RDTException("timeout")
@@ -216,23 +215,58 @@ class RDT:
             # return packet message to the upper layer
             return p.msg_S
 
+    def __receive_helper3_0(self, timer):
+        # print('Made it to receive helper')
+        # start = datetime.now()
+        while True:
+            if datetime.now() - timer > self.timeout:
+                return 'timeout'
+                # raise RDTException("timeout")
+            # !!! make sure to use net_rcv link to udt_send and udt_receive the in RDT receive function
+            byte_S = self.net_snd.udt_receive()
+            self.receiver_buffer += byte_S
+            if self.receiver_buffer == 'timeout':
+                return byte_S
+                # check if we have received enough bytes
+            if len(self.receiver_buffer) < Packet.length_S_length:
+                # return ret_S  # not enough bytes to read packet length
+                continue
+            # extract length of packet
+            length = int(self.receiver_buffer[:Packet.length_S_length])
+            if len(self.receiver_buffer) < length:
+                # return ret_S  # not enough bytes to read the whole packet
+                continue
+            # remove the packet bytes from the buffer
+            # print('Receive helper byte stream: ', self.receiver_buffer)
+            temp = self.receiver_buffer
+            self.receiver_buffer = self.receiver_buffer[length:]
+            return temp[0:length]
+
     def rdt_3_0_send(self, msg_S):
         # State 1: Wait for call 0 from above
         snd_packet = Packet(self.seq_num, msg_S)
-        # swap sequence number
-        # self.seq_num = int(not self.seq_num)
         self.seq_num = 0
         while True:
             self.byte_buffer = ''
             self.net_snd.udt_send(snd_packet.get_byte_S())
+            # the important change from 2_1
+            # start timer
+            timer = datetime.now()
             # State 2: STOP AND WAIT for an ACK or NAK after transmitting packet
-            rcv = self.__receive_helper()
+            rcv = self.__receive_helper3_0(timer)
             if rcv is None:
+                return
+            if rcv == 'timeout':
+                print('Retransmit after timeout')
+                self.receiver_buffer = ''
+                self.net_snd.udt_send(snd_packet.get_byte_S())
                 return
             if Packet.corrupt(rcv):
                 print('ACK or NAK Packet Corrupt')
                 # increment packet seq num for retransmit
+                # self.receiver_buffer = ''
                 snd_packet = Packet(self.seq_num + 1, msg_S)
+                self.net_snd.udt_send(snd_packet.get_byte_S())
                 return
             snd_packet = Packet(self.seq_num, msg_S)
             rcv_packet = Packet.from_byte_S(rcv)
@@ -241,15 +275,19 @@ class RDT:
                 continue
             print('ACK received in sender')
             # self.seq_num += 1
+            # stop timer
             break
         # Transition to mirror image of first two states
 
     def rdt_3_0_receive(self):
         start = datetime.now()
-        expected_pkt_seq = self.seq_num
         while True:
             if datetime.now() - start > self.timeout:
-                raise RDTException("timeout")
+                p = Packet(self.seq_num, 'timeout')
+                self.byte_buffer = ''
+                self.net_rcv.udt_send(p.get_byte_S())
+                return 'timeout'
+                # raise RDTException("timeout")
             # !!! make sure to use net_rcv link to udt_send and udt_receive the in RDT receive function
             byte_S = self.net_rcv.udt_receive()
             self.byte_buffer += byte_S
@@ -298,12 +336,12 @@ if __name__ == '__main__':
 
     rdt = RDT(args.role, args.server, args.port)
     if args.role == 'client':
-        rdt.rdt_2_1_send('MSG_FROM_CLIENT')
+        rdt.rdt_3_0_send('MSG_FROM_CLIENT')
         sleep(2)
-        print(rdt.rdt_2_1_receive())
+        print(rdt.rdt_3_0_receive())
         rdt.disconnect()
     else:
         sleep(1)
-        print(rdt.rdt_2_1_receive())
-        rdt.rdt_2_1_send('MSG_FROM_SERVER')
+        print(rdt.rdt_3_0_receive())
+        rdt.rdt_3_0_send('MSG_FROM_SERVER')
         rdt.disconnect()
