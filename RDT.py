@@ -1,4 +1,3 @@
-import time
 from datetime import datetime, timedelta
 import Network
 import argparse
@@ -160,7 +159,7 @@ class RDT:
                 print('ACK or NAK Packet Corrupt')
                 # increment packet seq num for retransmit
                 snd_packet = Packet(self.seq_num + 1, msg_S)
-                self.net_snd.udt_send(snd_packet.get_byte_s())
+                self.net_snd.udt_send(snd_packet.get_byte_S())
                 return
             snd_packet = Packet(self.seq_num, msg_S)
             rcv_packet = Packet.from_byte_S(rcv)
@@ -254,26 +253,29 @@ class RDT:
             timer = datetime.now()
             # State 2: STOP AND WAIT for an ACK or NAK after transmitting packet
             rcv = self.__receive_helper3_0(timer)
-            if rcv is None:
+            if rcv is None or rcv == '':
+                self.byte_buffer = ''
+                self.receiver_buffer = ''
                 return
             if rcv == 'timeout':
                 print('Retransmit after timeout')
+                self.byte_buffer = ''
                 self.receiver_buffer = ''
-                self.net_snd.udt_send(snd_packet.get_byte_S())
+                # self.net_snd.udt_send(snd_packet.get_byte_S())
                 return
             if Packet.corrupt(rcv):
-                print('ACK or NAK Packet Corrupt')
+                # print('ACK or NAK Packet Corrupt')
                 # increment packet seq num for retransmit
-                # self.receiver_buffer = ''
-                snd_packet = Packet(self.seq_num + 1, msg_S)
-                self.net_snd.udt_send(snd_packet.get_byte_S())
+                self.receiver_buffer = ''
+                # snd_packet = Packet(self.seq_num + 1, msg_S)
+                # self.net_snd.udt_send(snd_packet.get_byte_S())
                 return
             snd_packet = Packet(self.seq_num, msg_S)
             rcv_packet = Packet.from_byte_S(rcv)
             if rcv_packet.msg_S == 'NAK':
-                print('NAK received in sender')
+                # print('NAK received in sender')
                 continue
-            print('ACK received in sender')
+            # print('ACK received in sender')
             # self.seq_num += 1
             # stop timer
             break
@@ -283,11 +285,11 @@ class RDT:
         start = datetime.now()
         while True:
             if datetime.now() - start > self.timeout:
-                p = Packet(self.seq_num, 'timeout')
-                self.byte_buffer = ''
+                # return
+                p = Packet(0, 'timeout')
                 self.net_rcv.udt_send(p.get_byte_S())
-                return 'timeout'
-                # raise RDTException("timeout")
+                # return
+                raise RDTException("timeout")
             # !!! make sure to use net_rcv link to udt_send and udt_receive the in RDT receive function
             byte_S = self.net_rcv.udt_receive()
             self.byte_buffer += byte_S
@@ -303,7 +305,7 @@ class RDT:
             # State 1 loop transitions
             # print('Packet: %s' % self.byte_buffer)
             if Packet.corrupt(self.byte_buffer):
-                print('Corrupt packet sent to receiver')
+                # print('Corrupt packet sent to receiver')
                 self.byte_buffer = self.byte_buffer[length:]
                 nak = Packet(self.seq_num, 'NAK')
                 self.net_rcv.udt_send(nak.get_byte_S())
@@ -317,10 +319,11 @@ class RDT:
             self.net_rcv.udt_send(ack.get_byte_S())
             # duplicate
             if p.seq_num > self.seq_num:
-                print('Retransmit received')
+                # print('Retransmit received')
                 # remove the packet bytes from the buffer
                 self.byte_buffer = self.byte_buffer[length:]
-                continue
+                self.receiver_buffer = ''
+                return
             # remove the packet bytes from the buffer
             self.byte_buffer = self.byte_buffer[length:]
             # return packet message to the upper layer
