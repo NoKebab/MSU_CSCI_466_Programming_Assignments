@@ -82,7 +82,7 @@ class Host:
     # @param data_S: data being transmitted to the network layer
     def udt_send(self, dst_addr, data_S):
         # split the packet up into two segments
-        if len(data_S) > 50:
+        if len(data_S) > self.out_intf_L[0].mtu:
             p = NetworkPacket(dst_addr, data_S[:len(data_S) // 2])
             print('%s: sending packet "%s" on the out interface with mtu=%d' % (self, p, self.out_intf_L[0].mtu))
             self.out_intf_L[0].put(p.to_byte_S())  # send packets always enqueued successfully
@@ -140,7 +140,6 @@ class Router:
                 pkt_S = self.in_intf_L[i].get()
                 # if packet exists make a forwarding decision
                 if pkt_S is not None:
-                    print("Got packet in forward")
                     p = NetworkPacket.from_byte_S(pkt_S)  # parse a packet out
                     # HERE you will need to implement a lookup into the
                     # forwarding table to find the appropriate outgoing interface
