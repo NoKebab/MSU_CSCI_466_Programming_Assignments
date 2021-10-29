@@ -35,6 +35,7 @@ class Link:
     
     # transmit a packet from the 'from' to the 'to' interface
     def tx_pkt(self):
+        # print('Made it to tx pkt')
         pkt_S = self.in_intf.get()
         if pkt_S is None:
             return  # return if no packet to transfer
