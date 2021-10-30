@@ -13,7 +13,7 @@ class Interface:
     # @param max_queue_size - the maximum size of the queue storing packets
     #  @param mtu - the maximum transmission unit on this interface
     def __init__(self, max_queue_size=0):
-        self.queue = queue.Queue(max_queue_size);
+        self.queue = queue.Queue(max_queue_size)
         self.mtu = 1
 
     # get packet from the queue interface

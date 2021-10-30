@@ -35,15 +35,15 @@ class Link:
     
     # transmit a packet from the 'from' to the 'to' interface
     def tx_pkt(self):
-        # print('Made it to tx pkt')
         pkt_S = self.in_intf.get()
         if pkt_S is None:
             return  # return if no packet to transfer
+        # print('\nMade it to txt packet in Link w/ non empty packet\n')
         if len(pkt_S) > self.in_intf.mtu:
-            print('%s: packet "%s" length greater than the from interface MTU (%d)' % (self, pkt_S, self.out_intf.mtu))
+            print('%s: packet "%s" length (%d) greater than the to interface MTU (%d)' % (self, pkt_S, len(pkt_S), self.out_intf.mtu))
             return  # return without transmitting if packet too big
         if len(pkt_S) > self.out_intf.mtu:
-            print('%s: packet "%s" length greater than the to interface MTU (%d)' % (self, pkt_S, self.out_intf.mtu))
+            print('%s: packet "%s" length (%d) greater than the to interface MTU (%d)' % (self, pkt_S, len(pkt_S), self.out_intf.mtu))
             return  # return without transmitting if packet too big
         # otherwise transmit the packet
         try:
