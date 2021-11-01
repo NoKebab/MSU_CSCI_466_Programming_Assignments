@@ -42,7 +42,7 @@ if __name__ == '__main__':
         t.start()
 
     # create some send events
-    for i in range(1):
+    for i in range(3):
         message = 'Do you like Huey Lewis and the News? Their early work was a little too new wave for my tastes...'
         client.udt_send(2, message, i)
 
