@@ -117,9 +117,9 @@ class Host:
             p = NetworkPacket(packet.dst_addr, packet.data_S[offset:seg_msg_length], packet.ident_num, flag, offset)
             print('%s: sending packet "%s" on the out interface with mtu=%d' % (self, p, mtu))
             self.out_intf_L[0].put(p.to_byte_S())
+            # update packet data for next segmentation
             packet.data_S = packet.data_S[offset:]
-            new_offset = seg_msg_length - offset
-            packet.offset = new_offset
+            packet.offset = seg_msg_length - offset
             self.segment(packet, mtu)
 
     # create a packet and enqueue for transmission
@@ -128,11 +128,10 @@ class Host:
     def udt_send(self, dst_addr, data_S, ident):
         # split the packet up into multiple segments if the length exceeds the mtu of the out link
         mtu = self.out_intf_L[0].mtu
+        p = NetworkPacket(dst_addr, data_S, ident, frag_flag=0, offset=0)
         if len(data_S) + NetworkPacket.header_length > mtu:
-            p = NetworkPacket(dst_addr, data_S, ident, frag_flag=0, offset=0)
             self.segment(p, mtu)
         else:
-            p = NetworkPacket(dst_addr, data_S, ident, frag_flag=0, offset=0)
             self.out_intf_L[0].put(p.to_byte_S())
 
 
@@ -143,8 +142,8 @@ class Host:
         if pkt_S is not None:
             p = NetworkPacket.from_byte_S(pkt_S)
             self.fragments.append(p)
+            # reassemble packet if end of fragments reached
             if p.frag_flag == 0:
-                # reassemble packet if end of fragments reached
                 msg = ''
                 for fragment in self.fragments:
                     # string together the right messages
@@ -183,20 +182,22 @@ class Router:
         return 'Router_%s' % (self.name)
 
     # split the packet up into multiple segments if the length exceeds the mtu of the out link recursively
-    def fragment(self, packet, in_intf, out, mtu, offset=0):
+    # mirrors the the segment function in Host
+    # also directs packets to the appropriate router or host
+    def fragment(self, packet, in_intf, out_intf, mtu, offset=0):
         header_length = NetworkPacket.header_length
         length = header_length + len(packet.data_S)
         seg_msg_length = offset + mtu - header_length
         if length > mtu:
             p = NetworkPacket(packet.dst_addr, packet.data_S[offset:seg_msg_length], packet.ident_num, 1, offset=offset)
-            print('%s: forwarding packet "%s" from interface %d to %d with mtu %d' % (self, p, in_intf, out, mtu))
-            self.out_intf_L[out].put(p.to_byte_S())
+            print('%s: forwarding packet "%s" from interface %d to %d with mtu %d' % (self, p, in_intf, out_intf, mtu))
+            self.out_intf_L[out_intf].put(p.to_byte_S())
             offset = seg_msg_length - offset
             packet.data_S = packet.data_S[offset:]
-            self.fragment(packet, in_intf, out, mtu, offset)
+            self.fragment(packet, in_intf, out_intf, mtu, offset)
         else:
-            print('%s: forwarding packet "%s" from interface %d to %d with mtu %d' % (self, packet, in_intf, out, mtu))
-            self.out_intf_L[out].put(packet.to_byte_S())
+            print('%s: forwarding packet "%s" from interface %d to %d with mtu %d' % (self, packet, in_intf, out_intf, mtu))
+            self.out_intf_L[out_intf].put(packet.to_byte_S())
 
     # look through the content of incoming interfaces and forward to
     # appropriate outgoing interfaces

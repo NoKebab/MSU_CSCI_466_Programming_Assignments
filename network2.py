@@ -108,20 +108,24 @@ class Host:
         return 'Host_%s' % (self.addr)
 
     # split the packet up into multiple segments if the length exceeds the mtu of the out link recursively
-    def segment(self, dst_addr, data_S, ident, mtu, offset=0):
-        length = NetworkPacket.header_length + len(data_S)
+    def segment(self, packet, mtu):
+        # total packet length
+        length = NetworkPacket.header_length + len(packet.data_S)
         header_length = NetworkPacket.header_length
+        offset = packet.offset
+        # end of the slice of the data_S that can fit in the mtu
         seg_msg_length = offset + mtu - header_length
         if length > mtu:
+            # calculate whether the packet is the final segment or first
             flag = int(length > mtu * 2)
-            # print('\nSeg Flag: ', flag)
-            p = NetworkPacket(dst_addr, data_S[offset:seg_msg_length], ident_num=ident, frag_flag=flag, offset=offset)
-            # self.fragments.append(p)
-            # print('Segment With Data_S From: ', offset, ' To: ', seg_msg_length)
+            # create segment
+            p = NetworkPacket(packet.dst_addr, packet.data_S[offset:seg_msg_length], packet.ident_num, flag, offset)
             print('%s: sending packet "%s" on the out interface with mtu=%d' % (self, p, mtu))
-            # print('Sent length: ', len(p.data_S) + header_length)
             self.out_intf_L[0].put(p.to_byte_S())
-            self.segment(dst_addr, data_S[offset:], ident, mtu, seg_msg_length - offset)
+            # update packet data for next segmentation
+            packet.data_S = packet.data_S[offset:]
+            packet.offset = seg_msg_length - offset
+            self.segment(packet, mtu)
 
     # host 1 sends
     # create a packet and enqueue for transmission
@@ -129,8 +133,12 @@ class Host:
     # @param data_S: data being transmitted to the network layer
     def udt_send(self, dst_addr, data_S, ident):
         # split the packet up into multiple segments if the length exceeds the mtu of the out link
-        # print('\nMade it to UDT Send\n')
-        self.segment(dst_addr, data_S, ident, self.out_intf_L[0].mtu)
+        mtu = self.out_intf_L[0].mtu
+        p = NetworkPacket(dst_addr, data_S, ident, frag_flag=0, offset=0)
+        if len(data_S) + NetworkPacket.header_length > mtu:
+            self.segment(p, mtu)
+        else:
+            self.out_intf_L[0].put(p.to_byte_S())
 
     # receive packet from the network layer and reconstruct fragmented packets
     # host 2 receives

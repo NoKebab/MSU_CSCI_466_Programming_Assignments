@@ -82,7 +82,8 @@ class Host:
     # @param data_S: data being transmitted to the network layer
     def udt_send(self, dst_addr, data_S):
         # split the packet up into two segments
-        if len(data_S) > self.out_intf_L[0].mtu:
+        length = len(data_S) + NetworkPacket.dst_addr_S_length
+        if length > self.out_intf_L[0].mtu:
             p = NetworkPacket(dst_addr, data_S[:len(data_S) // 2])
             print('%s: sending packet "%s" on the out interface with mtu=%d' % (self, p, self.out_intf_L[0].mtu))
             self.out_intf_L[0].put(p.to_byte_S())  # send packets always enqueued successfully

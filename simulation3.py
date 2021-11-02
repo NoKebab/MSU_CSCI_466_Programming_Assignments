@@ -30,7 +30,6 @@ if __name__ == '__main__':
     object_L.append(server2)
 
     # table_name -> {destination -> interface}
-    # top/only choice: 0, bottom choice: 1
     routing_tables = {'A': {3: 0, 4: 1},
                       'B': {3: 0, 4: 0},
                       'C': {3: 0, 4: 0},
@@ -57,7 +56,7 @@ if __name__ == '__main__':
     link_layer.add_link(link3.Link(router_a, 0, router_b, 0, 50))
     link_layer.add_link(link3.Link(router_a, 1, router_c, 0, 50))
 
-    link_layer.add_link(link3.Link(router_b, 0, router_d, 0, 50))
+    link_layer.add_link(link3.Link(router_b, 0, router_d, 0, 30))
 
     link_layer.add_link(link3.Link(router_c, 0, router_d, 0, 50))
 
@@ -70,15 +69,16 @@ if __name__ == '__main__':
         t.start()
 
     # create some send events
-    msg0 = "Let's see Paul Allen's card."
+    # msg0 = "Let's see Paul Allen's card."  # short message that does not need segmentation across any interface
+    # longer messages that need to be segmented and then reassembled at the most
     msg1 = 'Look at that subtle off-white coloring. The tasteful thickness of it. Oh, my God. It even has a watermark.'
     msg2 = 'Do you like Huey Lewis and the News? Their early work was a little too new wave for my tastes.'
     for i in range(1):
         # included source address
         client1.udt_send(3, msg1, i)
-        client2.udt_send(4, msg0, i + 1)
-        # client2.udt_send(4, msg2, i)
-        # client1.udt_send(3, msg1, 1)
+        # client1.udt_send(3, msg0, i + 1)
+        client2.udt_send(4, msg2, i)
+        # client2.udt_send(4, msg0, i + 1)
 
     # give the network sufficient time to transfer all packets before quitting
     sleep(simulation_time)
