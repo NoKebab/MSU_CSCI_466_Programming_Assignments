@@ -4,7 +4,7 @@ import threading
 from time import sleep
 from rprint import print
 
-##configuration parameters
+# configuration parameters
 router_queue_size = 0  # 0 means unlimited
 simulation_time = 1  # give the network sufficient time to execute transfers
 
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     for t in thread_L:
         t.start()
 
-    ## compute routing tables
+    # compute routing tables
     router_a.send_routes(1)  # one update starts the routing process
     sleep(simulation_time)  # let the tables converge
     print("Converged routing tables")

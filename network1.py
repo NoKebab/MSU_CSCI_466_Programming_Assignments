@@ -4,14 +4,14 @@ import threading
 from rprint import print
 
 
-## wrapper class for a queue of packets
+# wrapper class for a queue of packets
 class Interface:
-    ## @param maxsize - the maximum size of the queue storing packets
+    # @param maxsize - the maximum size of the queue storing packets
     def __init__(self, maxsize=0):
         self.in_queue = queue.Queue(maxsize)
         self.out_queue = queue.Queue(maxsize)
 
-    ##get packet from the queue interface
+    # get packet from the queue interface
     # @param in_or_out - use 'in' or 'out' interface
     def get(self, in_or_out):
         try:
@@ -28,7 +28,7 @@ class Interface:
         except queue.Empty:
             return None
 
-    ##put the packet into the interface queue
+    # put the packet into the interface queue
     # @param pkt - Packet to be inserted into the queue
     # @param in_or_out - use 'in' or 'out' interface
     # @param block - if True, block until room in queue, if False may throw queue.Full exception
@@ -41,13 +41,13 @@ class Interface:
             self.in_queue.put(pkt, block)
 
 
-## Implements a network layer packet.
+# Implements a network layer packet.
 class NetworkPacket:
-    ## packet encoding lengths 
+    # packet encoding lengths
     dst_S_length = 5
     prot_S_length = 1
 
-    ##@param dst: address of the destination host
+    # @param dst: address of the destination host
     # @param data_S: packet payload
     # @param prot_S: upper layer protocol for the packet (data, or control)
     def __init__(self, dst, prot_S, data_S):
@@ -55,11 +55,11 @@ class NetworkPacket:
         self.prot_S = prot_S
         self.data_S = data_S
 
-    ## called when printing the object
+    # called when printing the object
     def __str__(self):
         return self.to_byte_S()
 
-    ## convert packet to a byte string for transmission over links
+    # convert packet to a byte string for transmission over links
     def to_byte_S(self):
         byte_S = str(self.dst).zfill(self.dst_S_length)
         if self.prot_S == 'data':
@@ -71,7 +71,7 @@ class NetworkPacket:
         byte_S += self.data_S
         return byte_S
 
-    ## extract a packet object from a byte string
+    # extract a packet object from a byte string
     # @param byte_S: byte string representation of the packet
     @classmethod
     def from_byte_S(self, byte_S):
@@ -87,20 +87,20 @@ class NetworkPacket:
         return self(dst, prot_S, data_S)
 
 
-## Implements a network host for receiving and transmitting data
+# Implements a network host for receiving and transmitting data
 class Host:
 
-    ##@param addr: address of this node represented as an integer
+    # @param addr: address of this node represented as an integer
     def __init__(self, addr):
         self.addr = addr
         self.intf_L = [Interface()]
         self.stop = False  # for thread termination
 
-    ## called when printing the object
+    # called when printing the object
     def __str__(self):
         return self.addr
 
-    ## create a packet and enqueue for transmission
+    # create a packet and enqueue for transmission
     # @param dst: destination address for the packet
     # @param data_S: data being transmitted to the network layer
     def udt_send(self, dst, data_S):
@@ -108,28 +108,28 @@ class Host:
         print('%s: sending packet "%s"' % (self, p))
         self.intf_L[0].put(p.to_byte_S(), 'out')  # send packets always enqueued successfully
 
-    ## receive packet from the network layer
+    # receive packet from the network layer
     def udt_receive(self):
         pkt_S = self.intf_L[0].get('in')
         if pkt_S is not None:
             print('%s: received packet "%s"' % (self, pkt_S))
 
-    ## thread target for the host to keep receiving data
+    # thread target for the host to keep receiving data
     def run(self):
         print(threading.currentThread().getName() + ': Starting')
         while True:
             # receive data arriving to the in interface
             self.udt_receive()
             # terminate
-            if (self.stop):
+            if self.stop:
                 print(threading.currentThread().getName() + ': Ending')
                 return
 
 
-## Implements a multi-interface router
+# Implements a multi-interface router
 class Router:
 
-    ##@param name: friendly router name for debugging
+    # @param name: friendly router name for debugging
     # @param cost_D: cost table to neighbors {neighbor: {interface: cost}}
     # @param max_queue_size: max queue length (passed to Interface)
     def __init__(self, name, cost_D, max_queue_size):
@@ -152,7 +152,7 @@ class Router:
                 rt.update({neighbor: {self.name: cost}})
         return rt
 
-    ## Print routing table
+    # Print routing table
     def print_routes(self):
         print("Given routing table default print")
         print(self.rt_tbl_D)
@@ -180,7 +180,7 @@ class Router:
             print(end="+----")
         print('+')
 
-    ## called when printing the object
+    # called when printing the object
     def __str__(self):
         return self.name
 
