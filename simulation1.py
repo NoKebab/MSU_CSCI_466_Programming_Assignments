@@ -1,4 +1,4 @@
-import network1
+import network_CP3
 import link1
 import threading
 from time import sleep
@@ -12,20 +12,20 @@ if __name__ == '__main__':
     object_L = []  # keeps track of objects, so we can kill their threads at the end
 
     # create network hosts
-    host_1 = network1.Host('H1')
+    host_1 = network_CP3.Host('H1')
     object_L.append(host_1)
-    host_2 = network1.Host('H2')
+    host_2 = network_CP3.Host('H2')
     object_L.append(host_2)
 
     # create routers and cost tables for reaching neighbors
     cost_D = {'H1': {0: 1}, 'RB': {1: 1}}  # {neighbor: {interface: cost}}
-    router_a = network1.Router(name='RA',
+    router_a = network_CP3.Router(name='RA',
                                cost_D=cost_D,
                                max_queue_size=router_queue_size)
     object_L.append(router_a)
 
     cost_D = {'H2': {1: 3}, 'RA': {0: 1}}  # {neighbor: {interface: cost}}
-    router_b = network1.Router(name='RB',
+    router_b = network_CP3.Router(name='RB',
                                cost_D=cost_D,
                                max_queue_size=router_queue_size)
     object_L.append(router_b)
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     sleep(simulation_time)  # let the tables converge
     print("Converged routing tables")
     for obj in object_L:
-        if str(type(obj)) == "<class 'network.Router'>":
+        if str(type(obj)) == "<class 'network_CP3.Router'>":
             obj.print_routes()
 
     # send packet from host 1 to host 2

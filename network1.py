@@ -1,4 +1,4 @@
-import pickle
+import json
 import queue
 import threading
 from rprint import print
@@ -146,7 +146,7 @@ class Router:
 
     # sets up an initial routing table based on the cost_D field
     def init_rt(self):
-        rt = {}
+        rt = {self.name: {self.name: 0}}
         for neighbor in self.cost_D:
             for cost in self.cost_D.get(neighbor).values():
                 rt.update({neighbor: {self.name: cost}})
@@ -219,8 +219,9 @@ class Router:
     # @param i Interface number on which to send out a routing update
     def send_routes(self, i):
         # TODO: Send out a routing table update
-        #  create a routing table update packet
-        p = NetworkPacket(0, 'control', 'DUMMY_ROUTING_TABLE')
+        # create a routing table update packet
+        # p = NetworkPacket(0, 'control', 'DUMMY_ROUTING_TABLE')
+        p = NetworkPacket(0, 'control', json.dumps(self.rt_tbl_D))
         try:
             print('%s: sending routing update "%s" from interface %d' % (self, p, i))
             self.intf_L[i].put(p.to_byte_S(), 'out', True)
@@ -231,8 +232,18 @@ class Router:
     # forward the packet according to the routing table
     #  @param p Packet containing routing information
     def update_routes(self, p, i):
-        # TODO: add logic to update the routing tables and
-        #  possibly send out routing updates
+        # TODO: add logic to update the routing tables and possibly send out routing updates
+        # extract routing table from sender
+        received_rt = json.loads(p.data_S)
+        current_rt = self.rt_tbl_D
+        # find discrepancies in the dictionaries and update accordingly
+        for dest in received_rt:
+            if self.rt_tbl_D.get(dest) is None:
+                self.rt_tbl_D[dest] = received_rt.get(dest)
+            else:
+                self.rt_tbl_D[dest].update(received_rt.get(dest))
+        # if change_made:
+        #     self.send_routes(0)
         print('%s: Received routing update %s from interface %d' % (self, p, i))
 
     # thread target for the host to keep forwarding data
